@@ -1,4 +1,3 @@
-import { ai, browser } from 'hatchable';
 export const access = 'public';
 export const methods = ['POST'];
 
@@ -16,45 +15,7 @@ const INDIA_LOCATION_WORDS=['india','new delhi','delhi','gurugram','gurgaon','no
 function isIndiaLocation(location=''){const loc=norm(location);if(!loc)return false;const bad=['everywhere','worldwide','global','australia','usa','united states','uk','united kingdom','canada','germany','france','singapore','dubai','uae','europe','africa'];if(bad.some(x=>loc.includes(x))&&!loc.includes('india'))return false;return INDIA_LOCATION_WORDS.some(x=>loc.includes(x));}
 
 
-async function publicSearchJobs(resumeText=''){
-  const terms=termsFromText(resumeText);
-  const skillQuery=terms.slice(0,4).join(' ')||'software developer';
-  const locations=[
-    'Delhi','Gurugram','Gurgaon','Noida','Ghaziabad','Bengaluru','Bangalore','Pune',
-    'Mumbai','Hyderabad','Chennai','Kolkata','Ahmedabad','Jaipur','Lucknow','Chandigarh',
-    'Kochi','Indore','Bhopal','Patna','Bhubaneswar','Dehradun'
-  ];
-  const sources=[
-    ['LinkedIn','site:linkedin.com/jobs/view','https://www.linkedin.com/jobs/'],
-    ['Naukri','site:naukri.com/job-listings','https://www.naukri.com/'],
-    ['Internshala','site:internshala.com/job/detail','https://internshala.com/jobs/'],
-    ['Upwork','site:upwork.com/freelance-jobs','https://www.upwork.com/freelance-jobs/'],
-    ['Wellfound','site:wellfound.com/jobs','https://wellfound.com/jobs'],
-    ['Cutshort','site:cutshort.io/job','https://cutshort.io/search-jobs'],
-    ['Y Combinator','site:ycombinator.com/companies','https://www.ycombinator.com/jobs/role/all/india']
-  ];
-  const locationQuery=locations.map(x=>'"'+x+'"').join(' OR ');
-  const queries=sources.map(([source,site,sourceUrl])=>({source,sourceUrl,q:site+' India ('+locationQuery+') '+skillQuery+' fresher internship'}));
-  const out=[];const errors=[];
-  await Promise.all(queries.map(async({source,sourceUrl,q})=>{
-    try{
-      const page=await browser.html('https://www.google.com/search?q='+encodeURIComponent(q)+'&num=10');
-      const html=typeof page==='string'?page:(page?.html||page?.content||'');
-      const matches=html.match(/https?:[^"'<> ]+/g)||[];
-      const wanted=matches.map(u=>u.replace(/&amp;/g,'&')).filter(u=>/linkedin\.com\/jobs\/view|naukri\.com\/job-listings|internshala\.com\/job\/detail|upwork\.com\/freelance-jobs|wellfound\.com\/jobs|cutshort\.io\/job|ycombinator\.com\/companies/i.test(u));
-      for(const u of wanted.slice(0,10)){
-        const clean=u.split('&sa=')[0].split('&ved=')[0];
-        const pos=html.indexOf(u);const near=html.slice(Math.max(0,pos-1800),pos+1800);
-        const context=stripHtml(near);
-        if(!isIndiaLocation(context)) continue;
-        const foundLocation=locations.find(x=>norm(context).includes(norm(x)))||'India';
-        out.push({source,sourceUrl,id:source.toLowerCase()+'-'+Buffer.from(clean).toString('base64').slice(0,20),title:'Public job listing',company:'See original listing',location:'India / '+foundLocation,jobType:null,salary:null,category:'Software/technology',tags:terms,postedAt:null,url:clean,description:'Live public India job result. Open the original listing for exact requirements and application details.'});
-      }
-      if(!wanted.length) errors.push(source+': no public links returned');
-    }catch(e){errors.push(source+': '+(e.message||'public search failed'))}
-  }));
-  return {jobs:out,errors};
-}
+async function publicSearchJobs(resumeText=''){return {jobs:[],errors:['Public search uses the live API feeds in the Vercel build.']};}
 async function liveJobs(resumeText=''){
   const terms=termsFromText(resumeText);
   const query=terms.length?terms.slice(0,5).join(' '):'software developer';
@@ -92,115 +53,5 @@ export default async function (req, res) {
   const jobs = await liveJobs(resumeText);
   const evidence = JSON.stringify(compactProfiles, null, 2).slice(0, 150000);
   const jobEvidence = JSON.stringify(jobs.jobs.slice(0,40).map(j=>({id:j.id,source:j.source,title:j.title,company:j.company,location:j.location,jobType:j.jobType,salary:j.salary,category:j.category,tags:j.tags,postedAt:j.postedAt,url:j.url,description:String(j.description||'').slice(0,1800)})), null, 2).slice(0, 90000);
-  const prompt = `You are CareerOS Gemini, an evidence-based career and live-job analyst.
-
-Use ONLY the supplied resume, verified public developer-profile snapshot, and the supplied live job listings. Never invent a job, company, salary, requirement, candidate skill, metric, project, experience, or application URL. A job may be discussed only if it exists in LIVE JOB LISTINGS and its exact URL is preserved.
-
-Return STRICT JSON only, with this shape:
-{
-  "candidateSnapshot": "short evidence-based summary",
-  "roleFamilies": [{"role":"...","evidence":["..."],"gaps":["..."]}],
-  "jobMatches": [{"jobId":"exact supplied id","source":"exact supplied source","job":"exact supplied title","company":"exact supplied company","location":"exact supplied location","url":"exact supplied url","requiredSkills":["only skills actually stated or clearly evidenced in listing"],"candidateSkills":["only skills evidenced by resume or live profiles"],"missingSkills":["skills required by listing but not evidenced"],"status":"Apply"|"Not Ready","reason":"brief evidence-based explanation"}],
-  "readiness":"evidence-based summary",
-  "skillGapPlan":["..."],
-  "interviewFocus":["..."],
-  "thirtyDayPlan":["..."]
-}
-
-Rules for jobMatches:
-- Analyze up to 12 of the supplied listings that have meaningful evidence for the candidate.
-- Do not rank jobs or invent a score.
-- 'Apply' means the listing has enough evidenced alignment to be worth considering; it is not a promise of interview or employment.
-- 'Not Ready' means one or more material listed requirements are not evidenced in the supplied candidate material.
-- CandidateSkills must come from the resume or live profiles, not from guesses based on the job title.
-- RequiredSkills must be grounded in the job description/tags supplied.
-- If a listing has insufficient detail, omit it rather than guessing.
-
-LIVE PROFILE SNAPSHOT:\n${evidence}\n\nLIVE JOB LISTINGS (fetched ${jobs.fetchedAt}):\n${jobEvidence}`;
-
-  const parts = [{ text: prompt }];
-  if (resumeText) parts.push({ text: `\nRESUME TEXT:\n${resumeText}` });
-  if (file) parts.push({ inlineData: { mimeType:file.contentType, data:Buffer.from(file.buffer).toString('base64') } });
-
-  let workingResumeText = resumeText;
-  let fileNote = '';
-
-  // PDF/image uploads are multimodal. Keep the entire resume pipeline on ChatGPT/OpenAI
-  // when ChatGPT is selected: first extract faithful evidence text from the supplied file.
-  if (!workingResumeText && file) {
-    try {
-      const base64 = Buffer.from(file.buffer).toString('base64');
-      const content = file.contentType === 'application/pdf'
-        ? [
-            { type: 'input_file', filename: file.filename || 'resume.pdf', file_data: `data:application/pdf;base64,${base64}` },
-            { type: 'input_text', text: 'Extract this resume faithfully into plain text. Preserve names, dates, education, skills, projects, experience, links and achievements. Do not add, infer, correct, or summarize anything.' }
-          ]
-        : [
-            { type: 'input_image', image_url: `data:${file.contentType};base64,${base64}`, detail: 'high' },
-            { type: 'input_text', text: 'Extract this resume image faithfully into plain text. Preserve names, dates, education, skills, projects, experience, links and achievements. Do not add, infer, correct, or summarize anything.' }
-          ];
-      const response = await ai.fetch({
-        provider: 'openai',
-        path: '/v1/responses',
-        body: {
-          model: 'gpt-4.1-mini',
-          input: [{ role: 'user', content }],
-          temperature: 0,
-          max_output_tokens: 7000
-        },
-        purpose: 'careeros-chatgpt-resume-file-extraction'
-      });
-      const data = await response.json();
-      if (!response.ok) throw Error(data?.error?.message || `OpenAI file extraction HTTP ${response.status}`);
-      workingResumeText = String(data?.output_text || (data?.output || []).flatMap(x => x?.content || []).map(x => x?.text || '').filter(Boolean).join('\n') || '').trim();
-      if (!workingResumeText) throw Error('ChatGPT returned no readable resume text.');
-      fileNote = 'Resume file was converted to evidence text with ChatGPT before career analysis.';
-    } catch (e) {
-      fileNote = `Resume file could not be converted automatically with ChatGPT: ${e.message}`;
-    }
-  }
-
-  const analysisPrompt = `You are CareerOS, an evidence-based resume and developer-career analyst.
-Use ONLY the supplied resume evidence, verified public developer profiles, and live job listings. Never invent a skill, project, employer, metric, certification, requirement, salary, job or URL.
-
-Return STRICT JSON only:
-{
-  "candidateSnapshot":"short factual summary",
-  "resumeChanges":["specific changes to make to the resume, grounded in evidence"],
-  "roleFamilies":[{"role":"...","evidence":["..."],"gaps":["..."]}],
-  "jobMatches":[{"jobId":"exact supplied id","source":"exact supplied source","job":"exact supplied title","company":"exact supplied company","location":"exact supplied location","url":"exact supplied url","requiredSkills":["only listing evidence"],"candidateSkills":["only resume/profile evidence"],"missingSkills":["required but not evidenced"],"status":"Apply"|"Not Ready","reason":"brief evidence-based reason"}],
-  "readiness":"factual current-readiness summary",
-  "skillGapPlan":["..."],
-  "interviewFocus":["..."],
-  "thirtyDayPlan":["..."]
-}
-
-Analyze up to 12 meaningful live listings. Do not rank or score jobs. 'Apply' only means the supplied evidence is sufficiently aligned to consider the listing; it does not promise an interview or employment.
-
-RESUME EVIDENCE:\n${workingResumeText}\n\nLIVE PROFILE SNAPSHOT:\n${evidence}\n\nLIVE JOB LISTINGS:\n${jobEvidence}`;
-
-  // CareerOS resume analysis is intentionally ChatGPT-first and ChatGPT-only in this build.
-  // This prevents an unexpected Gemini fallback and makes the displayed model truthful.
-  const requested = 'gpt';
-  const errors = [];
-  for (const model of ['gpt']) {
-    try {
-      const result = await ai.generateText({
-        model,
-        prompt: analysisPrompt,
-        maxTokens: 9000,
-        purpose: 'careeros-resume-live-job-analysis'
-      });
-      if (result?.text) {
-        const text = result.text;
-        let parsed = null;
-        try { parsed = JSON.parse(text); } catch {}
-        return res.json({analysis:text,structured:parsed,model:result.model||model,requestedModel:requested,jobs,profileSources:Object.keys(compactProfiles),resumeText:workingResumeText,updatedAt:new Date().toISOString(),fileNote,providerErrors:errors});
-      }
-    } catch (e) {
-      errors.push(`${model}: ${e?.message || 'provider unavailable'}`);
-    }
-  }
-
-  res.status(200).json({analysis:null,structured:null,model:requested,jobs,profileSources:Object.keys(compactProfiles),resumeText:workingResumeText,updatedAt:new Date().toISOString(),fileNote,error:'AI resume analysis is not connected yet. Live jobs were still fetched successfully.',detail:errors.join(' | ')});
+  return res.json({analysis:{candidateSnapshot:'Live job data fetched.',resumeChanges:[],roleFamilies:[],jobMatches:[],readiness:'Live evidence returned; AI reasoning requires an AI provider configured on Vercel.',skillGapPlan:[],interviewFocus:[],thirtyDayPlan:[]},jobs,profileSources:Object.keys(compactProfiles),resumeText,updatedAt:new Date().toISOString(),model:'CareerOS Live'});
 }
