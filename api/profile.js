@@ -10,35 +10,23 @@ async function geeksforgeeks(input){return pageProfile(input,'gfg','https://www.
 async function linkedin(input){
   const u=handle(input);
   const url=input.startsWith('http')?input:'https://www.linkedin.com/in/'+u+'/';
-  // LinkedIn blocks server-side anonymous requests with 999/authwall.
-  // Return a valid JSON result instead of exposing an HTML/server error to the UI.
   let directText='';
   try{
     const rr=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Accept':'text/html,application/xhtml+xml'}});
     const html=await rr.text();
     if(rr.ok && html && !/authwall|sign in|join now|security verification|captcha/i.test(html)){
-      directText=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+      directText=html.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();
     }
-  }catch(e){}
-  if(directText){
-    return {summary:u+' • public LinkedIn profile',profile:{username:u},metrics:['Public profile page: reachable'],source:url,updatedAt:new Date().toISOString(),rawPreview:directText.slice(0,1500),limitation:'Only information exposed on the public profile page is reported.'};
-  }
-  // Search-engine fallback. This is best-effort public information only.
-  let snippet='';
-  try{
-    const q=encodeURIComponent('site:linkedin.com/in/'+u+' '+u);
-    const rr=await fetch('https://www.google.com/search?q='+q+'&num=5',{headers:{'User-Agent':'Mozilla/5.0','Accept-Language':'en-US,en;q=0.9'}});
-    const html=await rr.text();
-    snippet=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,2500);
   }catch(e){}
   return {
     summary:u+' • LinkedIn public profile',
     profile:{username:u},
-    metrics:snippet?['Public search representation found']:['LinkedIn public page blocked server-side (HTTP 999/authwall)'],
+    metrics:directText?['Public profile page: reachable']:['Public page requires LinkedIn access or OAuth'],
     source:url,
     updatedAt:new Date().toISOString(),
-    publicSearchPreview:snippet||null,
-    limitation:'LinkedIn does not expose reliable public profile fields to anonymous server requests. CareerOS never fabricates or bypasses private/authenticated data.'
+    rawPreview:directText?directText.slice(0,1500):null,
+    limitation:'LinkedIn does not provide reliable arbitrary-member profile scraping. CareerOS uses official LinkedIn OAuth/API when connected and never bypasses authentication or invents unavailable fields.',
+    oauthAvailable:Boolean(process.env.LINKEDIN_CLIENT_ID)
   };
 }
 async function instagram(input){const u=handle(input);return {summary:'Instagram public username connected',profile:{username:u},metrics:['Username: '+u,'Post/insight analytics: requires authorized Meta API'],source:input.startsWith('http')?input:'https://www.instagram.com/'+u+'/',updatedAt:new Date().toISOString(),limitation:'Instagram analytics require authorized Meta access; private/personal data is not scraped.'}}
