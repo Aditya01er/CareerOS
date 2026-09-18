@@ -18,7 +18,7 @@ async function linkedin(input){
       directText=pageHtml.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();
     }
   }catch(e){}
-  const meta=(name)=>{const m=pageHtml.match(new RegExp('<meta[^>]+(?:property|name)=["']'+name+'["'][^>]+content=["']([^"']*)["']','i'));return m?m[1].trim():''};
+  const meta=(name)=>{const m=pageHtml.match(new RegExp(`<meta[^>]+(?:property|name)=[\\"']${name}[\\"'][^>]+content=[\\"']([^\\"']*)[\\"']`,'i'));return m?m[1].trim():''};
   const title=meta('og:title')||meta('title');
   const description=meta('og:description')||meta('description');
   const image=meta('og:image');
