@@ -10,15 +10,15 @@ async function geeksforgeeks(input){return pageProfile(input,'gfg','https://www.
 async function linkedin(input){
   const u=handle(input);
   const url=input.startsWith('http')?input:'https://www.linkedin.com/in/'+u+'/';
-  let directText='';
+  let directText='', pageHtml='';
   try{
     const rr=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Accept':'text/html,application/xhtml+xml'}});
-    const html=await rr.text();
-    if(rr.ok && html && !/authwall|sign in|join now|security verification|captcha/i.test(html)){
-      directText=html.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();
+    pageHtml=await rr.text();
+    if(rr.ok && pageHtml && !/authwall|sign in|join now|security verification|captcha/i.test(pageHtml)){
+      directText=pageHtml.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();
     }
   }catch(e){}
-  const meta=(name)=>{const m=html.match(new RegExp('<meta[^>]+(?:property|name)=["']'+name+'["'][^>]+content=["']([^"']*)["']','i'));return m?m[1].trim():''};
+  const meta=(name)=>{const m=pageHtml.match(new RegExp('<meta[^>]+(?:property|name)=["']'+name+'["'][^>]+content=["']([^"']*)["']','i'));return m?m[1].trim():''};
   const title=meta('og:title')||meta('title');
   const description=meta('og:description')||meta('description');
   const image=meta('og:image');
