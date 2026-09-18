@@ -18,14 +18,21 @@ async function linkedin(input){
       directText=html.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();
     }
   }catch(e){}
+  const meta=(name)=>{const m=html.match(new RegExp('<meta[^>]+(?:property|name)=["']'+name+'["'][^>]+content=["']([^"']*)["']','i'));return m?m[1].trim():''};
+  const title=meta('og:title')||meta('title');
+  const description=meta('og:description')||meta('description');
+  const image=meta('og:image');
+  const followers=(directText.match(/([\\d,.]+)\\s+followers?/i)||[])[1]||'';
+  const headline=description||title.replace(/\\s*\\|\\s*LinkedIn.*$/i,'');
+  const name=(title||'').replace(/\\s*\\|\\s*LinkedIn.*$/i,'').replace(/\\s*-\\s*LinkedIn.*$/i,'').trim();
   return {
-    summary:u+' • LinkedIn public profile',
-    profile:{username:u},
-    metrics:directText?['Public profile page: reachable']:['Public page requires LinkedIn access or OAuth'],
+    summary:(name||u)+' • LinkedIn public profile',
+    profile:{username:u,name:name||u,realName:name||undefined,headline,description,avatar:image,followers:followers||undefined},
+    metrics:directText?['Public profile page: reachable',...(followers?['Followers: '+followers]:[])]:['Public page requires LinkedIn access or OAuth'],
     source:url,
     updatedAt:new Date().toISOString(),
-    rawPreview:directText?directText.slice(0,1500):null,
-    limitation:'LinkedIn does not provide reliable arbitrary-member profile scraping. CareerOS uses official LinkedIn OAuth/API when connected and never bypasses authentication or invents unavailable fields.',
+    rawPreview:directText?directText.slice(0,5000):null,
+    limitation:'CareerOS shows only LinkedIn data that is publicly exposed or returned by approved OAuth/API access. Experience, education, skills, certifications and activity are shown only when the source actually exposes them; unavailable fields remain unavailable.',
     oauthAvailable:Boolean(process.env.LINKEDIN_CLIENT_ID)
   };
 }
