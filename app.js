@@ -1,4 +1,4 @@
-const API=window.__HATCHABLE__?.api||'/api';
+const API='/api';
 let state={profiles:{}};
 const cfg={leetcode:{label:'LeetCode',placeholder:'username or profile URL',icon:'LC'},codeforces:{label:'Codeforces',placeholder:'handle or profile URL',icon:'CF'},codechef:{label:'CodeChef',placeholder:'username or profile URL',icon:'CC'},geeksforgeeks:{label:'GeeksforGeeks',placeholder:'username or profile URL',icon:'GfG'},github:{label:'GitHub',placeholder:'https://github.com/username',icon:'GH'},linkedin:{label:'LinkedIn',placeholder:'https://www.linkedin.com/in/username/',icon:'in'},chatgpt:{label:'ChatGPT AI',placeholder:'OpenAI connection handled in AI Setup',icon:'AI'},instagram:{label:'Instagram',placeholder:'@username or profile URL',icon:'IG'},whatsapp:{label:'WhatsApp Alerts',placeholder:'+91XXXXXXXXXX',icon:'WA'}};
 const $=s=>document.querySelector(s);
