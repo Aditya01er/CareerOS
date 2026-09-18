@@ -1,0 +1,1 @@
+export const access='public'; export const methods=['GET']; export default async function(req,res){res.json({ok:true,app:'CareerOS',mode:'real-data',timestamp:new Date().toISOString()})}
