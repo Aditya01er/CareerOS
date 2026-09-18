@@ -1,4 +1,3 @@
-import { ai } from 'hatchable';
 export const access = 'public';
 export const methods = ['POST'];
 
